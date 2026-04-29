@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pañol">
+  <link rel="manifest" href="manifest.json">
+  <title>Pañol — Inventario</title>
+
+  <style>
+    :root {
+      --bg:       #f0f4f8;
+      --card:     #ffffff;
+      --primary:  #1a1a2e;
+      --accent:   #4361ee;
+      --green:    #2ecc71;
+      --red:      #e74c3c;
+      --orange:   #f39c12;
+      --text:     #1a1a2e;
+      --muted:    #888;
+      --border:   #e8ecf0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+
+    /* NAV */
+    .topbar { background: var(--primary); color: #fff; padding: 16px 20px 12px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .topbar h1 { font-size: 18px; font-weight: 700; }
+    .topbar .sub { font-size: 12px; opacity: .6; margin-top: 2px; }
+    .notif-btn { background: rgba(255,255,255,.15); border: none; color: #fff; border-radius: 8px; padding: 8px 12px; font-size: 12px; cursor: pointer; }
+
+    /* BOTTOM NAV */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; z-index: 100; }
+    .nav-btn { flex: 1; padding: 10px 0 12px; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); transition: color .2s; }
+    .nav-btn.active { color: var(--accent); }
+    .nav-icon { font-size: 22px; }
+
+    /* PAGES */
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    /* CARDS */
+    .card { background: var(--card); border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+    .card-title { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    .card-value { font-size: 28px; font-weight: 800; }
+
+    /* STATS GRID */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .stat-card { background: var(--card); border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+    .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .stat-val { font-size: 26px; font-weight: 800; }
+    .stat-val.danger { color: var(--red); }
+    .stat-val.ok     { color: var(--green); }
+
+    /* ITEM LIST */
+    .item-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .item-row:last-child { border-bottom: none; }
+    .item-nombre { font-size: 14px; font-weight: 600; }
+    .item-codigo { font-size: 11px; color: var(--muted); }
+    .item-stock  { text-align: right; }
+    .item-stock-val { font-size: 18px; font-weight: 800; }
+    .item-stock-val.bajo { color: var(--red); }
+    .item-stock-unidad { font-size: 11px; color: var(--muted); }
+    .badge-bajo { display: inline-block; background: #fff3cd; color: #856404; border-radius: 5px; font-size: 10px; padding: 2px 6px; margin-top: 2px; }
+
+    /* SCANNER */
+    .scanner-wrap { position: relative; width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: #000; }
+    #video { width: 100%; height: 100%; object-fit: cover; }
+    .scanner-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    .scan-frame { width: 60%; aspect-ratio: 1; border: 3px solid #fff; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,.4); }
+    .scan-hint { text-align: center; color: var(--muted); font-size: 14px; margin-top: 16px; }
+
+    /* BOTONES */
+    .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: opacity .2s, transform .1s; text-align: center; }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-green   { background: var(--green);  color: #fff; }
+    .btn-red     { background: var(--red);    color: #fff; }
+    .btn-outline { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+    .btn-group   { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+
+    /* FORM */
+    .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; display: block; }
+    .form-input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 16px; outline: none; font-family: inherit; transition: border .2s; margin-bottom: 14px; }
+    .form-input:focus { border-color: var(--accent); }
+
+    /* ALERTA */
+    .alert { border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px; }
+    .alert-warn { background: #fff3cd; color: #856404; border: 1px solid #ffc107; }
+    .alert-ok   { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .alert-err  { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6cb; }
+
+    /* LOADING */
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #ccc; border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-center { display: flex; align-items: center; justify-content: center; padding: 32px; gap: 12px; color: var(--muted); font-size: 14px; }
+
+    /* HISTORIAL */
+    .mov-row { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .mov-row:last-child { border-bottom: none; }
+    .mov-tipo { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+    .mov-entrada { background: #d4edda; color: #155724; }
+    .mov-salida  { background: #fde8e8; color: #c0392b; }
+    .mov-nombre  { font-size: 13px; font-weight: 600; }
+    .mov-detalle { font-size: 11px; color: var(--muted); }
+    .mov-cant    { font-size: 16px; font-weight: 800; }
+
+    /* INSTALL BANNER */
+    .install-banner { background: var(--primary); color: #fff; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .install-banner p { font-size: 13px; line-height: 1.4; }
+    .install-banner button { background: #fff; color: var(--primary); border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; margin-left: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div>
+    <h1>📦 Pañol</h1>
+    <div class="sub" id="topbar-sub">Inventario en tiempo real</div>
+  </div>
+  <button class="notif-btn" onclick="solicitarNotificaciones()">🔔 Activar alertas</button>
+</div>
+
+<!-- PÁGINAS -->
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div id="install-banner" class="install-banner" style="display:none">
+    <p>📲 Instala la app en tu celular para acceso rápido</p>
+    <button onclick="instalarApp()">Instalar</button>
+  </div>
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total ítems</div><div class="stat-val" id="stat-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Stock bajo</div><div class="stat-val danger" id="stat-bajo">—</div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:15px;font-weight:700">Inventario</div>
+      <button onclick="cargarDashboard()" style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer">↻ Actualizar</button>
+    </div>
+    <div id="lista-items"><div class="loading-center"><div class="spinner"></div> Cargando...</div></div>
+  </div>
+</div>
+
+<!-- ESCÁNER -->
+<div id="page-scanner" class="page">
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Escanear código QR</div>
+    <div class="scanner-wrap" id="scanner-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <div class="scanner-overlay"><div class="scan-frame"></div></div>
+    </div>
+    <div class="scan-hint" id="scan-hint">Apunta la cámara al código QR del ítem</div>
+  </div>
+  <div id="scan-result" style="display:none"></div>
+</div>
+
+<!-- MOVIMIENTO MANUAL -->
+<div id="page-manual" class="page">
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:16px">Registrar movimiento</div>
+    <label class="form-label">Código del ítem</label>
+    <input class="form-input" id="manual-codigo" placeholder="Ej: HER-001" oninput="buscarItemManual()">
+    <div id="manual-item-info" style="margin-bottom:14px"></div>
+    <label class="form-label">Cantidad</label>
+    <input class="form-input" type="number" id="manual-cantidad" min="1" value="1">
+    <label class="form-label">Tu nombre (opcional)</label>
+    <input class="form-input" id="manual-usuario" placeholder="Ej: Juan">
+    <div class="btn-group">
+      <button class="btn btn-green" onclick="registrarManual('entrada')">▲ Entrada</button>
+      <button class="btn btn-red"   onclick="registrarManual('salida')">▼ Salida</button>
+    </div>
+    <div id="manual-msg" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="navegar('dashboard', this)">
+    <span class="nav-icon">📊</span>Dashboard
+  </button>
+  <button class="nav-btn" onclick="navegar('scanner', this)">
+    <span class="nav-icon">📷</span>Escanear
+  </button>
+  <button class="nav-btn" onclick="navegar('manual', this)">
+    <span class="nav-icon">✏️</span>Manual
+  </button>
+</nav>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+<!-- QR Scanner -->
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<script>
+// ---- CONFIGURACIÓN ----
+const WEBAPP_URL = "https://script.google.com/macros/library/d/1mmA9PEAJdIB_5SDOCI1fWUBpqp0iYBsllZpZ_fJmfeEffow3i9ndQaa6/2
+"; // Reemplaza con tu URL de Apps Script
+const VAPID_KEY  = "BOX_lcMT2eZUG7ROwXPPgcvfGyMUt0Ab5nsDNzqa2i4EywEsWpnwagaZssfTbTB-aJu07JzPvUahJzy0Hmh_-EQ";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyCehZgrVcKo6MlX9aKVxL3M-8KoQU0TuWA",
+  authDomain:        "panol-inventario.firebaseapp.com",
+  projectId:         "panol-inventario",
+  storageBucket:     "panol-inventario.firebasestorage.app",
+  messagingSenderId: "721748391874",
+  appId:             "1:721748391874:web:8d251bfd7f280a9501885b"
+};
+
+// ---- FIREBASE INIT ----
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+// ---- NAVEGACIÓN ----
+let scannerActivo = false;
+let scanStream    = null;
+
+function navegar(pagina, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + pagina).classList.add('active');
+  btn.classList.add('active');
+
+  if (pagina === 'scanner') {
+    iniciarScanner();
+  } else {
+    detenerScanner();
+    if (pagina === 'dashboard') cargarDashboard();
+  }
+}
+
+// ---- DASHBOARD ----
+let stockData = [];
+
+async function cargarDashboard() {
+  document.getElementById('lista-items').innerHTML = '<div class="loading-center"><div class="spinner"></div> Cargando...</div>';
+  try {
+    const resp = await fetch(`${WEBAPP_URL}?action=getStock`);
+    stockData  = await resp.json();
+
+    const bajo  = stockData.filter(i => i.bajo).length;
+    document.getElementById('stat-total').textContent = stockData.length;
+    document.getElementById('stat-bajo').textContent  = bajo;
+
+    if (bajo > 0) {
+      document.getElementById('topbar-sub').textContent = `⚠️ ${bajo} ítem${bajo > 1 ? 's' : ''} con stock bajo`;
+    } else {
+      document.getElementById('topbar-sub').textContent = 'Todo el stock en orden ✓';
+    }
+
+    const html = stockData.map(item => `
+      <div class="item-row">
+        <div>
+          <div class="item-nombre">${item.nombre}</div>
+          <div class="item-codigo">${item.codigo} · ${item.categoria}</div>
+          ${item.bajo ? '<span class="badge-bajo">⚠ Stock bajo</span>' : ''}
+        </div>
+        <div class="item-stock">
+          <div class="item-stock-val ${item.bajo ? 'bajo' : ''}">${item.stockActual}</div>
+          <div class="item-stock-unidad">${item.unidad} / mín ${item.stockMinimo}</div>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('lista-items').innerHTML = html || '<p style="color:var(--muted);text-align:center;padding:20px">Sin ítems registrados</p>';
+  } catch(e) {
+    document.getElementById('lista-items').innerHTML = '<div class="alert alert-err">Error cargando datos. Verifica la URL de la Web App.</div>';
+  }
+}
+
+// ---- ESCÁNER QR ----
+let scanInterval = null;
+
+async function iniciarScanner() {
+  if (scannerActivo) return;
+  document.getElementById('scan-result').style.display = 'none';
+  document.getElementById('scan-hint').textContent = 'Iniciando cámara...';
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    const video = document.getElementById('video');
+    video.srcObject = scanStream;
+    await video.play();
+    scannerActivo = true;
+    document.getElementById('scan-hint').textContent = 'Apunta al código QR del ítem';
+    scanInterval = setInterval(leerQR, 300);
+  } catch(e) {
+    document.getElementById('scan-hint').textContent = 'No se pudo acceder a la cámara. Usa el modo Manual.';
+  }
+}
+
+function detenerScanner() {
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  if (scanStream)   { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  scannerActivo = false;
+}
+
+function leerQR() {
+  const video  = document.getElementById('video');
+  if (!video.videoWidth) return;
+  const canvas  = document.createElement('canvas');
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(img.data, img.width, img.height);
+  if (code) {
+    detenerScanner();
+    procesarQR(code.data);
+  }
+}
+
+async function procesarQR(url) {
+  document.getElementById('scan-hint').textContent = '✓ QR detectado';
+  const params = new URLSearchParams(url.split('?')[1] || '');
+  const codigo = params.get('codigo');
+  if (!codigo) {
+    mostrarResultadoScan({ ok: false, msg: 'QR no válido para este sistema.' });
+    return;
+  }
+
+  const item = stockData.find(i => i.codigo === codigo);
+  if (!item) {
+    mostrarResultadoScan({ ok: false, msg: `Código "${codigo}" no encontrado en el inventario.` });
+    return;
+  }
+  mostrarFormularioScan(item);
+}
+
+function mostrarFormularioScan(item) {
+  const bajo = item.stockActual <= item.stockMinimo;
+  document.getElementById('scan-result').style.display = 'block';
+  document.getElementById('scan-result').innerHTML = `
+    <div class="card">
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px">${item.nombre}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${item.codigo} · ${item.categoria}</div>
+      <div style="display:flex;justify-content:space-between;background:#f7f9fc;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div><div style="font-size:12px;color:var(--muted)">Stock actual</div><div style="font-size:26px;font-weight:800;${bajo?'color:var(--red)':''}">${item.stockActual} <span style="font-size:13px;font-weight:400">${item.unidad}</span></div></div>
+        <div style="text-align:right"><div style="font-size:12px;color:var(--muted)">Mínimo</div><div style="font-size:18px;font-weight:700;color:var(--muted)">${item.stockMinimo} ${item.unidad}</div></div>
+      </div>
+      ${bajo ? '<div class="alert alert-warn">⚠️ Stock bajo o en mínimo</div>' : ''}
+      <label class="form-label">Cantidad</label>
+      <input class="form-input" type="number" id="scan-cantidad" min="1" value="1">
+      <label class="form-label">Tu nombre (opcional)</label>
+      <input class="form-input" id="scan-usuario" placeholder="Ej: Juan">
+      <div class="btn-group">
+        <button class="btn btn-green" onclick="registrarDesdeScanner('${item.codigo}','entrada')">▲ Entrada</button>
+        <button class="btn btn-red"   onclick="registrarDesdeScanner('${item.codigo}','salida')">▼ Salida</button>
+      </div>
+      <button class="btn btn-outline" style="margin-top:10px" onclick="reiniciarScanner()">← Escanear otro</button>
+      <div id="scan-msg" style="margin-top:12px"></div>
+    </div>
+  `;
+}
+
+async function registrarDesdeScanner(codigo, accion) {
+  const cant    = parseInt(document.getElementById('scan-cantidad').value);
+  const usuario = document.getElementById('scan-usuario').value || 'Anónimo';
+  if (!cant || cant < 1) { document.getElementById('scan-msg').innerHTML = '<div class="alert alert-err">Ingresa una cantidad válida</div>'; return; }
+  document.getElementById('scan-msg').innerHTML = '<div class="loading-center"><div class="spinner"></div> Registrando...</div>';
+  const url = `${WEBAPP_URL}?codigo=${encodeURIComponent(codigo)}&accion=${accion}&cantidad=${cant}&usuario=${encodeURIComponent(usuario)}`;
+  try {
+    await fetch(url, { mode: 'no-cors' });
+    document.getElementById('scan-msg').innerHTML = `<div class="alert alert-ok">✅ ${accion === 'entrada' ? 'Entrada' : 'Salida'} registrada correctamente</div>`;
+    await cargarDashboard();
+    setTimeout(reiniciarScanner, 2000);
+  } catch(e) {
+    document.getElementById('scan-msg').innerHTML = '<div class="alert alert-err">Error al registrar. Intenta de nuevo.</div>';
+  }
+}
+
+function reiniciarScanner() {
+  document.getElementById('scan-result').style.display = 'none';
+  iniciarScanner();
+}
+
+function mostrarResultadoScan(res) {
+  document.getElementById('scan-result').style.display = 'block';
+  document.getElementById('scan-result').innerHTML = `
+    <div class="card">
+      <div class="alert ${res.ok ? 'alert-ok' : 'alert-err'}">${res.ok ? '✅' : '❌'} ${res.msg}</div>
+      <button class="btn btn-outline" onclick="reiniciarScanner()">← Escanear otro</button>
+    </div>`;
+}
+
+// ---- REGISTRO MANUAL ----
+let debounceTimer;
+function buscarItemManual() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    const codigo = document.getElementById('manual-codigo').value.trim().toUpperCase();
+    const item   = stockData.find(i => String(i.codigo).toUpperCase() === codigo);
+    const info   = document.getElementById('manual-item-info');
+    if (item) {
+      const bajo = item.stockActual <= item.stockMinimo;
+      info.innerHTML = `<div class="alert ${bajo ? 'alert-warn' : 'alert-ok'}">${item.nombre} · Stock actual: <b>${item.stockActual} ${item.unidad}</b>${bajo ? ' ⚠️' : ' ✓'}</div>`;
+    } else if (codigo.length > 2) {
+      info.innerHTML = `<div class="alert alert-err">Código no encontrado</div>`;
+    } else {
+      info.innerHTML = '';
+    }
+  }, 400);
+}
+
+async function registrarManual(accion) {
+  const codigo  = document.getElementById('manual-codigo').value.trim();
+  const cant    = parseInt(document.getElementById('manual-cantidad').value);
+  const usuario = document.getElementById('manual-usuario').value || 'Anónimo';
+  const msg     = document.getElementById('manual-msg');
+  if (!codigo) { msg.innerHTML = '<div class="alert alert-err">Ingresa un código</div>'; return; }
+  if (!cant || cant < 1) { msg.innerHTML = '<div class="alert alert-err">Ingresa una cantidad válida</div>'; return; }
+  msg.innerHTML = '<div class="loading-center"><div class="spinner"></div> Registrando...</div>';
+  const url = `${WEBAPP_URL}?codigo=${encodeURIComponent(codigo)}&accion=${accion}&cantidad=${cant}&usuario=${encodeURIComponent(usuario)}`;
+  try {
+    await fetch(url, { mode: 'no-cors' });
+    msg.innerHTML = `<div class="alert alert-ok">✅ ${accion === 'entrada' ? 'Entrada' : 'Salida'} registrada para ${codigo}</div>`;
+    await cargarDashboard();
+    document.getElementById('manual-codigo').value   = '';
+    document.getElementById('manual-item-info').innerHTML = '';
+    document.getElementById('manual-cantidad').value = 1;
+  } catch(e) {
+    msg.innerHTML = '<div class="alert alert-err">Error al registrar. Intenta de nuevo.</div>';
+  }
+}
+
+// ---- NOTIFICACIONES PUSH ----
+async function solicitarNotificaciones() {
+  try {
+    const permiso = await Notification.requestPermission();
+    if (permiso !== 'granted') { alert('Permiso de notificaciones denegado.'); return; }
+    const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+    if (!token) { alert('No se pudo obtener el token de notificaciones.'); return; }
+    await fetch(`${WEBAPP_URL}?action=registerToken&token=${encodeURIComponent(token)}`, { mode: 'no-cors' });
+    alert('✅ Notificaciones activadas. Recibirás alertas cuando el stock esté bajo.');
+  } catch(e) {
+    alert('Error activando notificaciones: ' + e.message);
+  }
+}
+
+messaging.onMessage(payload => {
+  const { title, body } = payload.notification;
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/icon-192.png' });
+  }
+});
+
+// ---- INSTALAR PWA ----
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').style.display = 'flex';
+});
+
+async function instalarApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') document.getElementById('install-banner').style.display = 'none';
+  deferredPrompt = null;
+}
+
+// ---- INIT ----
+window.addEventListener('load', () => {
+  cargarDashboard();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+});
+</script>
+</body>
+</html>
